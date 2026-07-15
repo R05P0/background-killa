@@ -19,7 +19,7 @@ ui_print ""
 
 ui_print "- Extracting module files..."
 # Extract everything except META-INF to preserve cgi-bin subdir
-unzip -o "$ZIPFILE" -d "$MODPATH" -x 'META-INF/*' >&2
+unzip -o "$ZIPFILE" -d "$MODPATH" -x 'META-INF/*' 'build.sh' >&2
 
 ui_print "- Setting permissions..."
 set_perm "$MODPATH/service.sh"             root root 0755

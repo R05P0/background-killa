@@ -6,6 +6,7 @@ MODDIR="/data/adb/modules/background_killa"
 CONFIG_DIR="$MODDIR/config"
 KILL_LIST="$CONFIG_DIR/kill_list.txt"
 KILL_LOG="$CONFIG_DIR/kill.log"
+KILL_DELAY="$CONFIG_DIR/kill_delay"
 
 mkdir -p "$CONFIG_DIR"
 touch "$KILL_LIST"
@@ -41,13 +42,26 @@ json_escape() {
 
 action_list() {
     local filter
-    filter=$(get_param "filter")  # "all", "user" (default: user)
+    filter=$(get_param "filter")
     [ -z "$filter" ] && filter="user"
+
+    json_header
+
+    # Active: return only kill-listed packages
+    if [ "$filter" = "active" ]; then
+        printf '{"packages":['
+        local first=1
+        while IFS= read -r pkg; do
+            [ -z "$pkg" ] && continue
+            [ "$first" = "1" ] && first=0 || printf ','
+            printf '{"pkg":"%s","enabled":true}' "$(json_escape "$pkg")"
+        done < "$KILL_LIST"
+        printf ']}'
+        return
+    fi
 
     local pm_args=""
     [ "$filter" = "user" ] && pm_args="-3"
-
-    json_header
 
     local packages
     packages=$(pm list packages $pm_args 2>/dev/null | sed 's/^package://' | sort)
@@ -156,17 +170,42 @@ action_killnow() {
     printf '{"ok":true,"pkg":"%s"}' "$(json_escape "$pkg")"
 }
 
+action_get_delay() {
+    json_header
+    local d
+    d=$(cat "$KILL_DELAY" 2>/dev/null)
+    [ -z "$d" ] && d=0
+    printf '{"delay":%s}' "$d"
+}
+
+action_set_delay() {
+    local d
+    d=$(get_param "seconds")
+    json_header
+    case "$d" in
+        0|30|60|120|300|1200|3600|7200)
+            printf '%s' "$d" > "$KILL_DELAY"
+            printf '{"ok":true,"delay":%s}' "$d"
+            ;;
+        *)
+            printf '{"ok":false,"error":"invalid delay"}'
+            ;;
+    esac
+}
+
 # ── router ────────────────────────────────────────────────────────────────────
 
 ACTION=$(get_param "action")
 
 case "$ACTION" in
-    list)     action_list ;;
-    status)   action_status ;;
-    add)      action_add ;;
-    remove)   action_remove ;;
-    log)      action_log ;;
-    killnow)  action_killnow ;;
+    list)      action_list ;;
+    status)    action_status ;;
+    add)       action_add ;;
+    remove)    action_remove ;;
+    log)       action_log ;;
+    killnow)   action_killnow ;;
+    getdelay)  action_get_delay ;;
+    setdelay)  action_set_delay ;;
     *)
         json_header
         printf '{"ok":false,"error":"unknown action: %s"}' "$(json_escape "$ACTION")"

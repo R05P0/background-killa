@@ -2,6 +2,6 @@ id=background_killa
 name=Background Killa
 version=v1.0
 versionCode=1
-author=marcotelesca
+author=R05P0
 description=Force-kills apps when they leave the foreground. Manage targets via WebUI on port 8765.
 minMagisk=20400

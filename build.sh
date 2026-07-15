@@ -12,6 +12,7 @@ echo "==> Building $ZIP_NAME..."
 rm -f "$ZIP_NAME"
 zip -r "$ZIP_NAME" \
     module.prop \
+    icon.png \
     service.sh \
     monitor.sh \
     action.sh \

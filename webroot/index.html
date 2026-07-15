@@ -40,7 +40,7 @@
     align-items: center;
     gap: 14px;
   }
-  .skull { font-size: 26px; line-height: 1; }
+  .logo { height: 40px; width: auto; flex: 0 0 auto; }
   .title-block h1 { font-size: 19px; font-weight: 700; color: var(--accent); letter-spacing: .4px; }
   .title-block p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .status-dot {
@@ -95,6 +95,17 @@
     border-radius: 999px; font-size: 11px;
     font-weight: 700; padding: 2px 8px;
   }
+
+  /* ── delay chips ── */
+  .delay-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; color: var(--muted);
+    cursor: pointer; font-size: 13px; padding: 7px 16px;
+    transition: all .2s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--text); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   /* ── controls ── */
   .controls { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -238,7 +249,7 @@
 <body>
 
 <header>
-  <div class="skull">&#128128;</div>
+  <img class="logo" src="logo.png" alt="" aria-hidden="true">
   <div class="title-block">
     <h1>Background Killa</h1>
     <p>Force-kills apps when they leave foreground</p>
@@ -266,13 +277,30 @@
         <input type="text" id="searchInput" placeholder="Search package..." autocomplete="off">
       </div>
       <div class="pill-toggle">
-        <button id="btnUser" class="active" onclick="setFilter('user')">User</button>
-        <button id="btnAll"  onclick="setFilter('all')">All</button>
+        <button id="btnActive" class="active" onclick="setFilter('active')">Active</button>
+        <button id="btnUser"   onclick="setFilter('user')">User</button>
+        <button id="btnAll"    onclick="setFilter('all')">All</button>
       </div>
     </div>
 
     <div id="appList" class="app-list">
       <div class="loader"><div class="spinner"></div> Loading apps...</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header">
+      <h2>Kill delay</h2>
+    </div>
+    <div class="delay-chips" id="delayChips">
+      <button class="chip" data-s="0"   onclick="setDelay(0)">0s</button>
+      <button class="chip" data-s="30"  onclick="setDelay(30)">30s</button>
+      <button class="chip" data-s="60"  onclick="setDelay(60)">1m</button>
+      <button class="chip" data-s="120" onclick="setDelay(120)">2m</button>
+      <button class="chip" data-s="300" onclick="setDelay(300)">5m</button>
+      <button class="chip" data-s="1200" onclick="setDelay(1200)">20m</button>
+      <button class="chip" data-s="3600" onclick="setDelay(3600)">1h</button>
+      <button class="chip" data-s="7200" onclick="setDelay(7200)">2h</button>
     </div>
   </section>
 
@@ -342,6 +370,17 @@ async function sh(cmd) {
 const API = {
 
   async listApps(filter) {
+    // Active: read only the kill list — fast, no full package scan
+    if (filter === 'active') {
+      if (!NATIVE) {
+        const r = await fetch('/cgi-bin/api.sh?action=list&filter=active');
+        return (await r.json()).packages || [];
+      }
+      const killRaw = await sh(`cat '${KILL_LIST}' 2>/dev/null`);
+      return killRaw.trim().split('\n').filter(Boolean)
+        .map(pkg => ({ pkg, enabled: true }));
+    }
+
     if (!NATIVE) {
       const r = await fetch(`/cgi-bin/api.sh?action=list&filter=${filter}`);
       return (await r.json()).packages || [];
@@ -407,7 +446,7 @@ const API = {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let allApps = [];
-let filter  = 'user';
+let filter  = 'active';
 let searchQ = '';
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
@@ -474,7 +513,10 @@ function renderApps() {
   const vis  = allApps.filter(a => !q || a.pkg.toLowerCase().includes(q));
 
   if (!vis.length) {
-    list.innerHTML = `<div class="empty"><div class="ico">&#128269;</div><p>No apps found</p></div>`;
+    const msg = filter === 'active'
+      ? '<p>No apps selected</p><p style="margin-top:6px;font-size:12px">Switch to <b>User</b> or <b>All</b> to add apps</p>'
+      : '<p>No apps found</p>';
+    list.innerHTML = `<div class="empty"><div class="ico">&#128269;</div>${msg}</div>`;
     return;
   }
 
@@ -515,8 +557,9 @@ async function loadApps() {
 
 function setFilter(f) {
   filter = f;
-  document.getElementById('btnUser').classList.toggle('active', f === 'user');
-  document.getElementById('btnAll').classList.toggle('active',  f === 'all');
+  document.getElementById('btnActive').classList.toggle('active', f === 'active');
+  document.getElementById('btnUser').classList.toggle('active',   f === 'user');
+  document.getElementById('btnAll').classList.toggle('active',    f === 'all');
   loadApps();
 }
 
@@ -538,6 +581,47 @@ async function killNow(evt, pkg) {
     toast(`Killed: ${pkg}`);
     setTimeout(loadLog, 600);
   } catch (e) { toast('Kill failed: ' + e); }
+}
+
+// ── Delay ─────────────────────────────────────────────────────────────────────
+const KILL_DELAY_FILE = CFG + '/kill_delay';
+
+function renderDelay(seconds) {
+  document.querySelectorAll('#delayChips .chip').forEach(c => {
+    c.classList.toggle('active', parseInt(c.dataset.s) === seconds);
+  });
+}
+
+async function loadDelay() {
+  try {
+    if (!NATIVE) {
+      const r = await fetch('/cgi-bin/api.sh?action=getdelay');
+      const d = await r.json();
+      renderDelay(d.delay || 0);
+    } else {
+      const out = await sh(`cat '${KILL_DELAY_FILE}' 2>/dev/null || echo 0`);
+      renderDelay(parseInt(out.trim()) || 0);
+    }
+  } catch { renderDelay(0); }
+}
+
+async function setDelay(seconds) {
+  try {
+    if (!NATIVE) {
+      await fetch(`/cgi-bin/api.sh?action=setdelay&seconds=${seconds}`);
+    } else {
+      await sh(`printf '%s' '${seconds}' > '${KILL_DELAY_FILE}'`);
+    }
+    renderDelay(seconds);
+    toast(seconds === 0 ? 'Immediate kill' : `Kill delay: ${fmtDelay(seconds)}`);
+  } catch (e) { toast('Error: ' + e); }
+}
+
+function fmtDelay(s) {
+  if (s === 0)    return 'immediate';
+  if (s < 60)     return s + 's';
+  if (s < 3600)   return (s / 60) + 'm';
+  return (s / 3600) + 'h';
 }
 
 // ── Log ───────────────────────────────────────────────────────────────────────
@@ -565,7 +649,7 @@ document.getElementById('searchInput').addEventListener('input', function () {
 });
 
 // ── Init & polling ────────────────────────────────────────────────────────────
-Promise.all([loadStatus(), loadApps(), loadLog()]);
+Promise.all([loadStatus(), loadApps(), loadLog(), loadDelay()]);
 setInterval(loadStatus, 6000);
 setInterval(loadLog,    20000);
 </script>
