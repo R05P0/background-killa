@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Background Killa</title>
+<style>
+  :root {
+    --bg:      #0e0e0e;
+    --surface: #1a1a1a;
+    --card:    #242424;
+    --border:  #2e2e2e;
+    --accent:  #ff4444;
+    --accent2: #ff6b6b;
+    --green:   #4caf50;
+    --text:    #e8e8e8;
+    --muted:   #777;
+    --radius:  12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  /* ── header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .skull { font-size: 26px; line-height: 1; }
+  .title-block h1 { font-size: 19px; font-weight: 700; color: var(--accent); letter-spacing: .4px; }
+  .title-block p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .status-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted); margin-left: auto; transition: background .3s;
+  }
+  .status-dot.alive {
+    background: var(--green);
+    box-shadow: 0 0 7px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 6px var(--green); }
+    50%      { box-shadow: 0 0 14px var(--green); }
+  }
+
+  /* ── status bar ── */
+  .status-bar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 9px 20px;
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-size: 12px; color: var(--muted);
+  }
+  .status-bar b { color: var(--text); }
+
+  /* ── mode badge ── */
+  .mode-badge {
+    margin-left: auto;
+    background: rgba(255,255,255,.06);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── main ── */
+  main { padding: 20px; max-width: 680px; margin: 0 auto; }
+
+  section { margin-bottom: 24px; }
+
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-header h2 {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted);
+  }
+  .count-badge {
+    background: var(--accent); color: #fff;
+    border-radius: 999px; font-size: 11px;
+    font-weight: 700; padding: 2px 8px;
+  }
+
+  /* ── controls ── */
+  .controls { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .search-wrap { flex: 1; min-width: 180px; position: relative; }
+  .search-wrap input {
+    width: 100%;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-size: 15px; padding: 10px 14px 10px 36px;
+    outline: none; transition: border-color .2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-icon {
+    position: absolute; left: 11px; top: 50%;
+    transform: translateY(-50%); color: var(--muted); pointer-events: none;
+  }
+  .pill-toggle {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); display: flex; overflow: hidden;
+  }
+  .pill-toggle button {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 13px; padding: 10px 16px;
+    transition: all .2s;
+  }
+  .pill-toggle button.active { background: var(--accent); color: #fff; }
+
+  /* ── app list ── */
+  .app-list {
+    background: var(--card); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .app-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+  .app-item:last-child { border-bottom: none; }
+  .app-item:hover { background: rgba(255,255,255,.03); }
+  .app-item.enabled { background: rgba(255,68,68,.06); }
+  .app-item.enabled:hover { background: rgba(255,68,68,.10); }
+
+  .app-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0; color: var(--muted);
+  }
+  .app-item.enabled .app-icon {
+    background: rgba(255,68,68,.15);
+    border-color: var(--accent); color: var(--accent);
+  }
+  .app-info { flex: 1; min-width: 0; }
+  .app-name {
+    font-size: 14px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .app-pkg {
+    font-size: 11px; color: var(--muted); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .app-item.enabled .app-name { color: var(--accent2); }
+  .app-actions { display: flex; gap: 6px; align-items: center; }
+
+  .btn-kill {
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    cursor: pointer; font-size: 11px; padding: 5px 9px;
+    transition: all .2s; white-space: nowrap;
+  }
+  .btn-kill:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* toggle */
+  .toggle { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--border); border-radius: 13px;
+    cursor: pointer; transition: background .25s;
+  }
+  .toggle-track::after {
+    content: ''; position: absolute;
+    width: 20px; height: 20px; border-radius: 50%; background: #ccc;
+    top: 3px; left: 3px; transition: transform .25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+  /* ── empty / loader ── */
+  .empty {
+    text-align: center; padding: 44px 20px; color: var(--muted);
+  }
+  .empty .ico { font-size: 40px; margin-bottom: 10px; }
+  .empty p { font-size: 13px; }
+
+  .loader {
+    display: flex; align-items: center; justify-content: center;
+    padding: 44px; color: var(--muted); gap: 10px; font-size: 13px;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── log ── */
+  .log-box {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'Courier New', monospace; font-size: 11.5px;
+    color: var(--muted); max-height: 260px; overflow-y: auto;
+    padding: 12px 14px;
+  }
+  .log-line { padding: 1.5px 0; }
+  .log-line.killed { color: var(--accent2); }
+  .log-line.info   { color: #5db8ff; }
+  .log-empty { text-align: center; padding: 20px; font-family: sans-serif; font-size: 13px; }
+
+  /* ── toast ── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #2e2e2e; color: var(--text);
+    padding: 10px 22px; border-radius: 999px;
+    font-size: 13px; transition: transform .3s;
+    z-index: 999; white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── small link ── */
+  .text-btn {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 12px;
+  }
+  .text-btn:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="skull">&#128128;</div>
+  <div class="title-block">
+    <h1>Background Killa</h1>
+    <p>Force-kills apps when they leave foreground</p>
+  </div>
+  <div class="status-dot" id="statusDot"></div>
+</header>
+
+<div class="status-bar">
+  <span>Daemon: <b id="sbDaemon">...</b></span>
+  <span>Foreground: <b id="sbFg">...</b></span>
+  <span>Kill list: <b id="sbCount">...</b></span>
+  <span class="mode-badge" id="modeBadge">HTTP</span>
+</div>
+
+<main>
+  <section>
+    <div class="section-header">
+      <h2>Apps to kill</h2>
+      <span class="count-badge" id="enabledCount">0</span>
+    </div>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" id="searchInput" placeholder="Search package..." autocomplete="off">
+      </div>
+      <div class="pill-toggle">
+        <button id="btnUser" class="active" onclick="setFilter('user')">User</button>
+        <button id="btnAll"  onclick="setFilter('all')">All</button>
+      </div>
+    </div>
+
+    <div id="appList" class="app-list">
+      <div class="loader"><div class="spinner"></div> Loading apps...</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header">
+      <h2>Kill log</h2>
+      <button class="text-btn" onclick="loadLog()">&#8635; Refresh</button>
+    </div>
+    <div id="logBox" class="log-box">
+      <div class="log-empty">No kills yet.</div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const MOD     = '/data/adb/modules/background_killa';
+const CFG     = MOD + '/config';
+const KILL_LIST = CFG + '/kill_list.txt';
+const KILL_LOG  = CFG + '/kill.log';
+const PREV_PKG  = CFG + '/prev_pkg';
+const MON_PID   = CFG + '/monitor.pid';
+
+// ── Shell bridge detection ────────────────────────────────────────────────────
+// Priority: ksu (KernelSU / Magisk native WebUI / MMRL compat) → mmrl → HTTP
+
+let _shell = null;
+
+function detectBridge() {
+  // KsuWebUIStandalone / KernelSU / MMRL inject `ksu`.
+  // Correct call: ksu.exec(cmd, '{}', callbackName)
+  // where callbackName is a string pointing to a global fn on window.
+  if (typeof ksu !== 'undefined' && ksu.exec) {
+    return (cmd) => new Promise((ok, ko) => {
+      const cb = 'bk_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+      window[cb] = (errno, stdout, stderr) => {
+        delete window[cb];
+        errno === 0 ? ok(stdout) : ko(stderr || stdout || ('exit ' + errno));
+      };
+      try { ksu.exec(cmd, '{}', cb); }
+      catch (e) { delete window[cb]; ko(String(e)); }
+    });
+  }
+  if (typeof mmrl !== 'undefined' && typeof mmrl.exec === 'function') {
+    return (cmd) => Promise.resolve(mmrl.exec(cmd));
+  }
+  return null; // HTTP fallback
+}
+
+try { _shell = detectBridge(); } catch (_) {}
+
+const NATIVE = !!_shell;
+document.getElementById('modeBadge').textContent = NATIVE ? 'Native' : 'HTTP';
+
+async function sh(cmd) {
+  if (!_shell) throw new Error('No native bridge');
+  const out = await _shell(cmd);
+  return typeof out === 'string' ? out : String(out ?? '');
+}
+
+// ── API layer (native OR HTTP) ────────────────────────────────────────────────
+
+const API = {
+
+  async listApps(filter) {
+    if (!NATIVE) {
+      const r = await fetch(`/cgi-bin/api.sh?action=list&filter=${filter}`);
+      return (await r.json()).packages || [];
+    }
+    const flag = filter === 'user' ? '-3' : '';
+    const [raw, killRaw] = await Promise.all([
+      sh(`pm list packages ${flag} 2>/dev/null`),
+      sh(`cat '${KILL_LIST}' 2>/dev/null`)
+    ]);
+    const killSet = new Set(killRaw.trim().split('\n').filter(Boolean));
+    return raw.trim().split('\n').filter(Boolean)
+      .map(l => l.replace('package:', '').trim())
+      .sort()
+      .map(pkg => ({ pkg, enabled: killSet.has(pkg) }));
+  },
+
+  async toggle(pkg, enable) {
+    if (!NATIVE) {
+      await fetch(`/cgi-bin/api.sh?action=${enable ? 'add' : 'remove'}&pkg=${encodeURIComponent(pkg)}`);
+      return;
+    }
+    if (enable) {
+      await sh(`echo '${pkg}' >> '${KILL_LIST}' && sort -u '${KILL_LIST}' -o '${KILL_LIST}'`);
+    } else {
+      await sh(`grep -vxF '${pkg}' '${KILL_LIST}' > '${KILL_LIST}.tmp' 2>/dev/null && mv '${KILL_LIST}.tmp' '${KILL_LIST}'`);
+    }
+  },
+
+  async status() {
+    if (!NATIVE) {
+      const r = await fetch('/cgi-bin/api.sh?action=status');
+      return r.json();
+    }
+    const [aliveOut, fgOut, countOut] = await Promise.all([
+      sh(`[ -f '${MON_PID}' ] && kill -0 $(cat '${MON_PID}') 2>/dev/null && echo true || echo false`),
+      sh(`cat '${PREV_PKG}' 2>/dev/null`),
+      sh(`wc -l < '${KILL_LIST}' 2>/dev/null | tr -d ' '`)
+    ]);
+    return {
+      daemon:      aliveOut.trim() === 'true',
+      foreground:  fgOut.trim() || 'unknown',
+      kill_count:  parseInt(countOut.trim()) || 0
+    };
+  },
+
+  async log() {
+    if (!NATIVE) {
+      const r = await fetch('/cgi-bin/api.sh?action=log&lines=120');
+      return (await r.json()).log || [];
+    }
+    const out = await sh(`tail -n 120 '${KILL_LOG}' 2>/dev/null`);
+    return out.trim().split('\n').filter(Boolean);
+  },
+
+  async killNow(pkg) {
+    if (!NATIVE) {
+      await fetch(`/cgi-bin/api.sh?action=killnow&pkg=${encodeURIComponent(pkg)}`);
+      return;
+    }
+    await sh(`am force-stop '${pkg}' 2>/dev/null`);
+  }
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allApps = [];
+let filter  = 'user';
+let searchQ = '';
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function toast(msg, ms = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Segments to skip when building a display name
+const _TLDS    = new Set(['com','org','net','io','co','tv','me','app','uk','de','fr','it','es','br','ru','cn','jp','kr','au','ca','in']);
+const _GENERIC = new Set(['android','mobile','app','application','main','phone','tablet','official','free','lite','plus','pro','beta','release','debug','x','ms']);
+// Companies whose brand is less descriptive than the product segment that follows
+const _UMBRELLA = new Set(['google','microsoft','samsung','xiaomi','huawei','amazon','meta','apple','sony','lg','oppo','vivo','oneplus']);
+
+function _bestSegment(pkg) {
+  const parts = pkg.split('.');
+  let brand = null;
+  let skippingTld = true;
+  for (let i = 0; i < parts.length; i++) {
+    const low = parts[i].toLowerCase();
+    if (skippingTld && _TLDS.has(low)) continue;
+    skippingTld = false;
+    if (_GENERIC.has(low) || parts[i].length <= 1) continue;
+    if (!brand) { brand = parts[i]; continue; }
+    // If the brand is a known umbrella company, prefer the next meaningful segment
+    if (_UMBRELLA.has(brand.toLowerCase())) { brand = parts[i]; break; }
+    break;
+  }
+  return brand || parts[parts.length - 1] || pkg;
+}
+
+function initial(pkg) {
+  return _bestSegment(pkg)[0].toUpperCase();
+}
+
+function shortName(pkg) {
+  const s = _bestSegment(pkg);
+  return s[0].toUpperCase() + s.slice(1).replace(/([A-Z])/g, ' $1').trim();
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+async function loadStatus() {
+  try {
+    const s = await API.status();
+    const dot = document.getElementById('statusDot');
+    dot.classList.toggle('alive', !!s.daemon);
+    document.getElementById('sbDaemon').textContent = s.daemon ? 'Running' : 'Stopped';
+    document.getElementById('sbFg').textContent     = s.foreground || '—';
+    document.getElementById('sbCount').textContent  = (s.kill_count || 0) + ' apps';
+  } catch { document.getElementById('sbDaemon').textContent = 'Error'; }
+}
+
+// ── App list ──────────────────────────────────────────────────────────────────
+function renderApps() {
+  const list = document.getElementById('appList');
+  const q    = searchQ.toLowerCase();
+  const vis  = allApps.filter(a => !q || a.pkg.toLowerCase().includes(q));
+
+  if (!vis.length) {
+    list.innerHTML = `<div class="empty"><div class="ico">&#128269;</div><p>No apps found</p></div>`;
+    return;
+  }
+
+  vis.sort((a, b) => (b.enabled - a.enabled) || a.pkg.localeCompare(b.pkg));
+  document.getElementById('enabledCount').textContent = allApps.filter(a => a.enabled).length;
+
+  list.innerHTML = vis.map(a => `
+    <div class="app-item ${a.enabled ? 'enabled' : ''}" data-pkg="${escHtml(a.pkg)}">
+      <div class="app-icon">${initial(a.pkg)}</div>
+      <div class="app-info">
+        <div class="app-name">${escHtml(shortName(a.pkg))}</div>
+        <div class="app-pkg">${escHtml(a.pkg)}</div>
+      </div>
+      <div class="app-actions">
+        <button class="btn-kill" onclick="killNow(event,'${escHtml(a.pkg)}')" title="Force-stop now">
+          &#9760; Kill
+        </button>
+        <label class="toggle" onclick="event.stopPropagation()">
+          <input type="checkbox" ${a.enabled ? 'checked' : ''}
+                 onchange="toggleApp('${escHtml(a.pkg)}',this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>`).join('');
+}
+
+async function loadApps() {
+  document.getElementById('appList').innerHTML =
+    '<div class="loader"><div class="spinner"></div> Loading apps...</div>';
+  try {
+    allApps = await API.listApps(filter);
+    renderApps();
+  } catch (e) {
+    document.getElementById('appList').innerHTML =
+      `<div class="empty"><div class="ico">&#9888;</div><p>${escHtml(String(e))}</p></div>`;
+  }
+}
+
+function setFilter(f) {
+  filter = f;
+  document.getElementById('btnUser').classList.toggle('active', f === 'user');
+  document.getElementById('btnAll').classList.toggle('active',  f === 'all');
+  loadApps();
+}
+
+async function toggleApp(pkg, enable) {
+  try {
+    await API.toggle(pkg, enable);
+    const a = allApps.find(x => x.pkg === pkg);
+    if (a) a.enabled = enable;
+    renderApps();
+    toast(enable ? `Will kill: ${pkg}` : `Removed: ${pkg}`);
+    loadStatus();
+  } catch (e) { toast('Error: ' + e); }
+}
+
+async function killNow(evt, pkg) {
+  evt.stopPropagation();
+  try {
+    await API.killNow(pkg);
+    toast(`Killed: ${pkg}`);
+    setTimeout(loadLog, 600);
+  } catch (e) { toast('Kill failed: ' + e); }
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+async function loadLog() {
+  const box = document.getElementById('logBox');
+  try {
+    const lines = await API.log();
+    if (!lines.length) {
+      box.innerHTML = '<div class="log-empty">No kills yet.</div>';
+      return;
+    }
+    box.innerHTML = lines.slice().reverse().map(l => {
+      let cls = 'log-line';
+      if (l.includes('KILLED')) cls += ' killed';
+      else if (l.includes('INFO') || l.includes('WARN')) cls += ' info';
+      return `<div class="${cls}">${escHtml(l)}</div>`;
+    }).join('');
+  } catch { box.innerHTML = '<div class="log-empty">Could not load log.</div>'; }
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', function () {
+  searchQ = this.value.trim();
+  renderApps();
+});
+
+// ── Init & polling ────────────────────────────────────────────────────────────
+Promise.all([loadStatus(), loadApps(), loadLog()]);
+setInterval(loadStatus, 6000);
+setInterval(loadLog,    20000);
+</script>
+</body>
+</html>
